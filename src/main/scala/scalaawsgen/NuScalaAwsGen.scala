@@ -33,6 +33,18 @@ object NuScalaAwsGen {
     files.foreach(f => process(f.getPath))
   }
 
+  def getAllResourcesFromFiles(filenames: List[String]): Either[String, List[ResourceType]] = for {
+    forwardResources <- filenames.traverse(filename => getResourceTypesFromFile(filename))
+  } yield {
+    resolveForwardRefs(forwardResources.flatten.reverse)
+  }
+
+  //the plan is by travsersing the global list backward, all what were originally forward refs should now refer to
+  // something we've already seen. If they dont, we've hit a ref to a name but never encountered the definition... Problem!
+  def resolveForwardRefs(rs: List[ResourceType]): List[ResourceType] = {
+    ???
+  }
+
   def process(filename: String): Unit = {
     val result = for {
       json <- parse(fromFile(filename).mkString)
@@ -43,6 +55,14 @@ object NuScalaAwsGen {
     println(s"\n------------| Processing $filename |---------------------------------------------------------->")
     println(s"PropertyTypes: ${result.map(_._1.mkString(", "))}.")
     println(s"\nResourceTypes: ${result.map(_._2.mkString(",  "))}.")
+  }
+
+  def getResourceTypesFromFile(filename: String): Either[String, List[ResourceType]] = {
+    for {
+      json <- parse(fromFile(filename).mkString).left.map(_.toString)
+      propTypes <- getPropertyTypes(json)
+      resTypes <- getResourceTypes(json, propTypes)
+    } yield (resTypes)
   }
 
   def getPropertyTypes(json: Json): Either[String, List[SubPropertyType]] = {
